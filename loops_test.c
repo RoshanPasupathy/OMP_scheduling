@@ -170,10 +170,9 @@ void loop1(void) {
   pad = chnk_sz = (int) (itr/P);
 
   //#pragma omp atomic update
-  #pragma omp critical (lock_itr_left)
-  {//#pragma omp atomic update
+  //#pragma omp critical (lock_itr_left)
+  #pragma omp atomic write
   itr_left[t_no] = itr - pad;
-  }
   // #pragma omp critical
   // {
   //   printf("itr from thread %d: %d\n",t_no, itr);
@@ -189,12 +188,11 @@ void loop1(void) {
       */
       //Possible race: Doesnt seem to be the issue
 
-      #pragma omp critical (lock_itr_left)
-      {//#pragma omp atomic update
+      //#pragma omp critical (lock_itr_left)
+      #pragma omp atomic update
       itr_left[t_no] -= chnk_sz;
-      //#pragma omp atomic read
-      itr = itr_left[t_no] + pad;
-      }
+      #pragma omp atomic read
+      itr = itr_left[t_no];
 
       for (i = lb ;i < ub; i++){
         //#pragma omp atomic update //DEBUG
@@ -205,7 +203,7 @@ void loop1(void) {
       }
       lb = i;
 
-      //itr += pad;
+      itr += pad;
       // New chunk size
       chnk_sz = (int) (itr/P);
       if (chnk_sz < 1){
@@ -231,8 +229,8 @@ void loop1(void) {
     }
     //transfer laod
 
-    #pragma omp critical (lock_itr_left)
-    //#pragma omp atomic capture
+    //#pragma omp critical (lock_itr_left)
+    #pragma omp atomic capture
     {
     itr = itr_left[ldd_t];
     itr_left[ldd_t] = 0;
@@ -259,11 +257,11 @@ void loop1(void) {
     }
     //Thread says it has completed 'pad' but hasnt actually
     //#pragma omp atomic update
-    #pragma omp critical (lock_itr_left)
-    {//#pragma omp atomic write
+    //#pragma omp critical (lock_itr_left)
+    #pragma omp atomic write
     itr_left[t_no] = itr - pad;
     //itr_left[t_no] -= pad;
-    }
+
     //if Last thread, segment end = N
     lb = (seg == P - 1)? N - itr: ((seg + 1)*th_alloc) - itr;
     // Uncomment for DEBUG
