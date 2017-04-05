@@ -239,6 +239,8 @@ void loop1(void) {
     itr = itr_left[ldd_t];
     itr_left[ldd_t] -= itr;
     }
+    } //END LOAD TRANSFER
+    // uncomment for DEBUG
     //printf("T%d has %d itrs left (Org value = %d) Reassign to T%d ....",ldd_t, itr, max_val, t_no);
     //get segment
     // #pragma omp atomic read
@@ -246,12 +248,12 @@ void loop1(void) {
 
     // #pragma omp atomic write
     // itr_left[ldd_t] = 0;
-    //#pragma atomic read
+    #pragma atomic read
     seg = seg_asgn[ldd_t];
     //Update array about change
-    //#pragma atomic write
+    #pragma atomic write
     seg_asgn[t_no] = seg;
-    } //END LOAD TRANSFER
+
 
     pad =  chnk_sz = (int) (itr/P);
     if (itr < P){
