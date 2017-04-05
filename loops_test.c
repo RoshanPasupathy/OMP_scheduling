@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
   valid2();
 
   printf("Total time for %d reps of loop 2 = %f\n",reps, (float)(end2-start2));
-  debug_race();
+  //debug_race();
   free(seg_asgn);
   free(itr_left);
   //free(itr_prf);
@@ -192,12 +192,11 @@ void loop1(void) {
       itr_left[t_no] -= chnk_sz;
       //#pragma omp atomic read
       itr = itr_left[t_no] + pad;
-      //pragma omp critical (load_and_store)
       }
 
       for (i = lb ;i < ub; i++){
-        #pragma omp atomic update
-        itr_prf[i]++;
+        //#pragma omp atomic update //DEBUG
+        //itr_prf[i]++;             //DEBUG
         for (j=N-1; j>i; j--){
           a[i][j] += cos(b[i][j]);
         }
@@ -240,46 +239,37 @@ void loop1(void) {
     itr = itr_left[ldd_t];
     itr_left[ldd_t] -= itr;
     }
-    printf("T%d has %d itrs left (Org value = %d) Reassign to T%d ....",ldd_t, itr, max_val, t_no);
+    //printf("T%d has %d itrs left (Org value = %d) Reassign to T%d ....",ldd_t, itr, max_val, t_no);
     //get segment
     // #pragma omp atomic read
     // itr = itr_left[ldd_t];
 
     // #pragma omp atomic write
     // itr_left[ldd_t] = 0;
-    //No other thread reassigns segment
-    // simultaneoously Hence no lock needed
-    #pragma atomic read
+    //#pragma atomic read
     seg = seg_asgn[ldd_t];
-
     //Update array about change
-    #pragma atomic write
+    //#pragma atomic write
     seg_asgn[t_no] = seg;
-
-
-
-
+    } //END LOAD TRANSFER
 
     pad =  chnk_sz = (int) (itr/P);
     if (itr < P){
       pad = chnk_sz = 1;
     }
     //Thread says it has completed 'pad' but hasnt actually
-    //possible race : Doesnt seem to be the issue
     //#pragma omp atomic update
-    //#pragma omp critical (load_and_store)
     #pragma omp critical (lock_itr_left)
     {//#pragma omp atomic write
     itr_left[t_no] = itr - pad;
     //itr_left[t_no] -= pad;
     }
 
-    //if Last thread, segment end = N else (Seg + 1) *  th_alloc
+    //if Last thread, segment end = N
     lb = (seg == P - 1)? N - itr: ((seg + 1)*th_alloc) - itr;
-    printf(" eval segment %d. bounds %d - %d\n", seg, lb, (seg+1) * th_alloc);
+    // Uncomment for DEBUG
+    //printf(" eval segment %d. bounds %d - %d\n", seg, lb, (seg+1) * th_alloc);
   }
-  }
-  //#pragma omp barrier
   }
 }
 
