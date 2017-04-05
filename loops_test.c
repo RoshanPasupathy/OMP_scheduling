@@ -171,7 +171,9 @@ void loop1(void) {
 
   //#pragma omp atomic update
   #pragma omp critical (lock_itr_left)
-  {itr_left[t_no] = itr - pad;}
+  {//#pragma omp atomic update
+  itr_left[t_no] = itr - pad;
+  }
   // #pragma omp critical
   // {
   //   printf("itr from thread %d: %d\n",t_no, itr);
@@ -210,11 +212,7 @@ void loop1(void) {
         chnk_sz = 1;
       }
     } // Ran out of iterations in assigned segment
-    // #pragma omp critical (lock_itr_left)
-    // //#pragma omp atomic capture
-    // {
-    // itr_left[t_no] = 0;
-    // }
+
    // Load transfer block //
 
     #pragma omp critical (load_transfer)
@@ -237,7 +235,7 @@ void loop1(void) {
     //#pragma omp atomic capture
     {
     itr = itr_left[ldd_t];
-    itr_left[ldd_t] -= itr;
+    itr_left[ldd_t] = 0;
     }
     } //END LOAD TRANSFER
     // uncomment for DEBUG
@@ -266,7 +264,6 @@ void loop1(void) {
     itr_left[t_no] = itr - pad;
     //itr_left[t_no] -= pad;
     }
-
     //if Last thread, segment end = N
     lb = (seg == P - 1)? N - itr: ((seg + 1)*th_alloc) - itr;
     // Uncomment for DEBUG
