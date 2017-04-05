@@ -179,19 +179,23 @@ void loop1(void) {
   while (max_val > 0){
     while (itr > 0){
       ub = lb + chnk_sz;
-      /* Uncomment for DEBUG segmentation fault
-      if (seg*seg_sz > lb || lb > (seg+1)*seg_sz){
+      /*//Uncomment for DEBUG segmentation fault
+      if (((seg*seg_sz > lb || lb > (seg+1)*seg_sz) && (seg != P - 1)) ||
+         ((seg*seg_sz > lb || lb > N) && (seg == P - 1)))
+      {
         #pragma omp critical (lock_printf)
         {printf(" lb = %d is out of bounds of seg %d | THREAD NO %d\n",lb , seg, t_no);}
       }
-      if ((seg*seg_sz > ub || ub > (seg+1)*seg_sz) && (ub != 729)) {
+      if (((seg*seg_sz > ub || ub > (seg+1)*seg_sz) && (seg != P - 1)) ||
+         ((seg*seg_sz > ub || ub > N) && (seg == P - 1)))
+      {
         #pragma omp critical (lock_printf)
         {printf(" ub = %d is out of bounds of seg %d | THREAD NO %d\n",ub , seg,t_no);}
       }
-      else{
-        #pragma omp critical (lock_printf)
-        {printf("Bounds okay\n");}
-      }
+      // else{
+      //   #pragma omp critical (lock_printf)
+      //   {printf("Bounds okay\n");}
+      // }
       */
       omp_set_lock(&(lock_itr_left[t_no]));
       itr_left[t_no] -= chnk_sz;
