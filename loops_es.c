@@ -9,7 +9,7 @@
 double a[N][N], b[N][N], c[N];
 int jmax[N];
 int P; //number of threads
-int th_alloc; //iterations allocated to each thread except last
+int seg_sz; //iterations allocated to each thread except last
 int t_no;
 //int* itr_left;
 
@@ -33,17 +33,20 @@ int main(int argc, char *argv[]) {
       P = omp_get_num_threads();
     }
   }
-  th_alloc = (int) (N/P);
+  seg_sz = (int) (N/P);
   //itr_left = (int *) malloc(sizeof(int) * P);
 
   init1();
 
   start1 = omp_get_wtime();
-
+  #pragma omp parallel default(none) \
+  shared(seg_sz, P, a , b) \
+  private(r, t_no)
+  {
   for (r=0; r<reps; r++){
     loop1();
   }
-
+  }
   end1  = omp_get_wtime();
 
   valid1();
@@ -104,13 +107,9 @@ void init2(void){
 void loop1(void) {
   int i,j;
   int lb, ub;
-  #pragma omp parallel default(none) \
-  shared(th_alloc, P, a , b) \
-  private(i, j, t_no, lb, ub)
-  {
   t_no = omp_get_thread_num();
-  lb = t_no * th_alloc;
-  ub = lb + th_alloc;
+  lb = t_no * seg_sz;
+  ub = lb + seg_sz;
   if (t_no == P - 1){
     ub += N;
   }
@@ -119,7 +118,7 @@ void loop1(void) {
       a[i][j] += cos(b[i][j]);
     }
   }
-  }
+  #pragma omp barrier
 }
 
 

@@ -17,7 +17,6 @@ int* seg_asgn; // seg assigned to each thread
 int t_no;
 //int* itr_prf;
 int itr_prf[N] = {0};
-int max_threads;
 
 void init1(void);
 void init2(void);
@@ -36,11 +35,8 @@ int main(int argc, char *argv[]) {
     #pragma omp single
     {
       P = omp_get_num_threads();
-      max_threads = omp_get_max_threads();
     }
   }
-
-  printf("Maximum number of threads: %d\n", max_threads);
 
   seg_sz = (int) (N/P);
   itr_left = (int *) malloc(sizeof(int) * P);
@@ -50,11 +46,10 @@ int main(int argc, char *argv[]) {
 
   start1 = omp_get_wtime();
 
-  // #pragma omp parallel default(none) \
-  // shared(r, itr_left, seg_asgn, P, seg_sz, tot_itr) \
-  // private (t_no)
-  // {
-  // t_no = omp_get_thread_num();
+  #pragma omp parallel default(none) \
+  shared(itr_left, seg_asgn, P, seg_sz,a, b, itr_prf) \
+  private (t_no, r)
+  {
   for (r=0; r<reps; r++){
     // #pragma omp parallel default(none) \
     // shared(r, itr_left, seg_asgn, P, seg_sz, tot_itr) \
@@ -75,6 +70,7 @@ int main(int argc, char *argv[]) {
     // }
     loop1();
   // }
+  }
   }
   end1  = omp_get_wtime();
 
@@ -136,17 +132,12 @@ void init2(void){
 }
 
 void loop1(void) {
-  int i,j,t, lb;
-  int rsv, chnk_sz, ub;
+  int i,j,t, lb, ub;
+  int rsv, chnk_sz;
   //bool run_flg;
   //maximum load, load, loaded thread
   int max_val, val, ldd_t;
   int seg, itr;
-  #pragma omp parallel default(none) \
-  shared(itr_left, seg_asgn, P, seg_sz,a, b, itr_prf) \
-  private (t_no, rsv, chnk_sz, ub, i ,j ,t, seg, itr) \
-  private(lb, max_val, val, ldd_t)
-  {
   /* default initial segment is
      corresponds to thread number
   */
@@ -168,9 +159,10 @@ void loop1(void) {
   rsv = chnk_sz = (int) (itr/P);
 
   //#pragma omp atomic update
-  //#pragma omp critical (lock_itr_left)
-  #pragma omp atomic write
+  #pragma omp critical (lock_itr_left)
+  {//#pragma omp atomic write
   itr_left[t_no] = itr - rsv;
+  }
   // #pragma omp critical
   // {
   //   printf("itr from thread %d: %d\n",t_no, itr);
@@ -179,12 +171,12 @@ void loop1(void) {
     while (itr > 0){
       ub = lb + chnk_sz;
 
-      //#pragma omp critical (lock_itr_left)
-      #pragma omp atomic update
+      #pragma omp critical (lock_itr_left)
+      {//#pragma omp atomic update
       itr_left[t_no] -= chnk_sz;
-      #pragma omp atomic read
+      //#pragma omp atomic read
       itr = itr_left[t_no];
-
+      }
       for (i = lb ;i < ub; i++){
         #pragma omp atomic update //DEBUG
         itr_prf[i]++;             //DEBUG
@@ -219,16 +211,15 @@ void loop1(void) {
     }
     //transfer laod
 
-    //#pragma omp critical (lock_itr_left)
-    #pragma omp atomic capture
+    #pragma omp critical (lock_itr_left)
+    //#pragma omp atomic capture
     {
     itr = itr_left[ldd_t];
     itr_left[ldd_t] = 0;
     }
     } //END LOAD TRANSFER
     // uncomment for DEBUG
-    #pragma omp critical (printf_lock)
-    {printf("T%d has %d itrs left (Org value = %d) Reassign to T%d ....",ldd_t, itr, max_val, t_no);}
+    printf("T%d has %d itrs left (Org value = %d) Reassign to T%d ....",ldd_t, itr, max_val, t_no);
     //get segment
     // #pragma omp atomic read
     // itr = itr_left[ldd_t];
@@ -248,18 +239,18 @@ void loop1(void) {
     }
     //Thread says it has completed 'rsv' but hasnt actually
     //#pragma omp atomic update
-    //#pragma omp critical (lock_itr_left)
-    #pragma omp atomic write
+    #pragma omp critical (lock_itr_left)
+    {//#pragma omp atomic write
     itr_left[t_no] = itr - rsv;
+    }
     //itr_left[t_no] -= rsv;
 
     //if Last thread, segment end = N
     lb = (seg == P - 1)? N - itr: ((seg + 1)*seg_sz) - itr;
     // Uncomment for DEBUG
-    #pragma omp critical (printf_lock)
-    {printf(" eval segment %d. bounds %d - %d\n", seg, lb, (seg+1) * seg_sz);}
+    printf(" eval segment %d. bounds %d - %d\n", seg, lb, (seg+1) * seg_sz);
   }
-  }
+  #pragma omp barrier
 }
 
 
