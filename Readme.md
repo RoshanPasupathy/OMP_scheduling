@@ -1,27 +1,27 @@
 # Readme
 
-# Instructions
+## Instructions
 * Run executables as normal
 * Use make as indicated to build files
 * To initialise threads use `export OMP\_NUM\_THREADS=n`
 
 ## loopsRef.c
-*loops REFerence*
+**loops** **Ref**erence
 * State: Working
 * Reference file provided in assignment
 
 ## loopsEs.c 
-*loops Explicit Scheduling*
+**loops** **E**xplicit **S**cheduling
 * State: Working
 * Explicit scheduling for loop 1
 
 ## loopsAfsIlp.c
-*loops AFfinity Scheduling Inside Loop Parallelism*
+**loops** **Af**finity **S**cheduling **I**nside **L**oop **P**arallelism
 * State: Working
 * Affinity scheduling with thread generation inside loops function
 
 ## loopsAfsOlp.c
-*loops AFfinity Scheduling Outside Loop Parallelism*
+**loops** **Af**finity **S**cheduling **O**utside **L**oop **P**arallelism
 * State: Working
 * Affinity scheduling with thread generation outside loops function
 
