@@ -118,7 +118,7 @@ void loop1(void) {
       a[i][j] += cos(b[i][j]);
     }
   }
-  #pragma omp barrier
+  //#pragma omp barrier
 }
 
 

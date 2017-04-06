@@ -1,0 +1,14 @@
+#!/bin/bash
+SRC=(*)
+shopt -s extglob
+RED=(!(*@(.c|Makefile|.md|red)))
+EXCS=(${S[@]/%.c/})
+shopt -u extglob
+
+diff=$(diff <(printf "%s\n" "${RED[@]}") <(printf "%s\n" "${EXCS[@]}"))
+
+for poss_red in ${diff[@]}; do
+	echo "$poss_red"
+done
+
+

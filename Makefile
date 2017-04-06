@@ -10,6 +10,10 @@ LIB= -lm
 SRCS=$(wildcard loop*.c)
 #EXECUTABLES=(${SOURCES[@]/%.c/})
 EXCS=$(patsubst %.c,%,$(SRCS))
+#S=(loop*.c)
+#E=(${S[@]/.c/})
+#R=(${E[@]/#/ -not -name })
+#E=$(patsubst 
 all: $(EXCS)
 
 #
@@ -24,3 +28,5 @@ all: $(EXCS)
 clean:
 	rm $(EXCS)
 
+rclean: 
+	find . -maxdepth 1 -type f \( -not -name "loop*" -not -iname "*.c" -not -iname "*.md" -not -iname "makefile*" \) -exec rm -i {} \;

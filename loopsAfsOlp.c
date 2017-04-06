@@ -218,10 +218,10 @@ void loop1(void) {
     } // Ran out of iterations in assigned segment
 
    // Load transfer block //
-    #pragma omp critical (load_transfer)
-    {
     max_val = 0;
     ldd_t = t_no;
+    #pragma omp critical (load_transfer)
+    {
     //iterate to get loaded thread
     for (t = 0; t < P; t++){
       omp_set_lock(&(lock_itr_left[t]));
@@ -248,10 +248,7 @@ void loop1(void) {
     seg_asgn[t_no] = seg_asgn[ldd_t];
     //omp_unset_lock(&(lock_seg_asgn[ldd_t]));
 
-    rsv =  chnk_sz = (int) (itr/P);
-    if (itr < P){
-      rsv = chnk_sz = 1;
-    }
+    rsv =  chnk_sz = (itr < P)? 1: (int) (itr/P);
     //Thread says it has completed 'rsv' but hasnt actually
     //omp_set_lock(&(lock_itr_left[t_no]));
     itr_left[t_no] = itr - rsv;
