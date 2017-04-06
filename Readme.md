@@ -3,7 +3,7 @@
 ## Instructions
 * Run executables as normal
 * Use make as indicated to build files
-* To initialise threads use `export OMP\_NUM\_THREADS=n`
+* To initialise threads use `export OMP_NUM_THREADS=n`
 
 ## loopsRef.c
 **loops** **Ref**erence
