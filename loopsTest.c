@@ -6,6 +6,8 @@
 #define N 729
 #define reps 1
 #include <omp.h>
+/* This is a test file where i
+experiment with ideas */
 
 double a[N][N], b[N][N], c[N];
 int jmax[N];

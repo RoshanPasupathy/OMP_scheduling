@@ -1,54 +1,26 @@
-# Makefile for the molecular dynamics code
+# Makefile for the FEEG6003 coursework
 
 #
-# C compiler and options for Cray
+# C compiler and options for system
 #
-CC=	clang-omp -O3 -fopenmp
+CC=	clang-omp
+CFLAGS=-O3 -fopenmp
 LIB= -lm
 
-#
-# C compiler and options for Intel
-#
-#CC=     icc -O3 -openmp
-#LIB=    -lm
-
-#
-# C compiler and options for PGI 
-#
-#CC=     pgcc -O3 -mp 
-#LIB=	-lm
-
-#
-# C compiler and options for GNU 
-#
-#CC=     gcc -O3 -fopenmp 
-#LIB=	-lm
-
-#
-# Object files
-#
-OBJ=    main.o \
-	dfill.o \
-	domove.o \
-        dscal.o \
-	fcc.o \
-	forces.o \
-	mkekin.o \
-	mxwell.o \
-	prnout.o \
-	velavg.o
+SRCS=$(wildcard loop*.c)
+#EXECUTABLES=(${SOURCES[@]/%.c/})
+EXCS=$(patsubst %.c,%,$(SRCS))
+all: $(EXCS)
 
 #
 # Compile
 #
-md:	$(OBJ)
-	$(CC) -o $@ $(OBJ) $(LIB)
-
-.c.o:
-	$(CC) -c $<
+% : %.c
+	$(CC) $(CFLAGS) -o $@ $< $(LIB)
 
 #
 # Clean out object files and the executable.
 #
 clean:
-	rm *.o md
+	rm $(EXCS)
+
