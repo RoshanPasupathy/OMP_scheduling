@@ -25,6 +25,12 @@
 * State: Working
 * Affinity scheduling with thread generation outside loops function
 
+## loopsAfsOlpN.c
+**loops** **Af**finity **S**cheduling **O**utside **L**oop **P**arallelism **N**ew
+* State: Not Working (In Debug Mode)
+* Affinity scheduling with thread generation outside loops function
+* Threads are not evaluating first few iterations of their segments
+
 ## loopsTest.c
 * State: Not Working
 > Out of bounds array accesses on certain ocassions
