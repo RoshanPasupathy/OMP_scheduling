@@ -27,9 +27,9 @@
 
 ## loopsAfsOlpN.c
 **loops** **Af**finity **S**cheduling **O**utside **L**oop **P**arallelism **N**ew
-* State: Not Working (In Debug Mode)
+* State: Works great
 * Affinity scheduling with thread generation outside loops function
-* Threads are not evaluating first few iterations of their segments
+* Minimal locks. Main overhead in load transfer
 
 ## loopsAfsOlp\_.c
 **loops** **Af**finity **S**cheduling **O**utside **L**oop **P**arallelism **Dash**

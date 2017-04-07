@@ -173,9 +173,9 @@ void loop1(void) {
 
   //#pragma omp atomic read
 
-  omp_set_lock(&(lock_seg_asgn[t_no]));
+  //omp_set_lock(&(lock_seg_asgn[t_no]));
   seg = seg_asgn[t_no];
-  omp_unset_lock(&(lock_seg_asgn[t_no]));
+  //omp_unset_lock(&(lock_seg_asgn[t_no]));
 
   //#pragma atomic write
   //seg_asgn[t_no] = t_no;
@@ -287,9 +287,11 @@ void loop1(void) {
     seg_asgn[t_no] = seg_asgn[ldd_t];
     //omp_unset_lock(&(lock_seg_asgn[t_no]));
     //reassign loaded thread to my segment
-    omp_set_lock(&(lock_seg_asgn[ldd_t]));
+
+    //omp_set_lock(&(lock_seg_asgn[ldd_t]));
     seg_asgn[ldd_t] = seg;
-    omp_unset_lock(&(lock_seg_asgn[ldd_t]));
+    //omp_unset_lock(&(lock_seg_asgn[ldd_t]));
+
     seg = seg_asgn[t_no];
 
     /*//Uncomment for DEBUG transfers and segment tracking
