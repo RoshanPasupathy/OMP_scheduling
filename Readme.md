@@ -31,6 +31,13 @@
 * Affinity scheduling with thread generation outside loops function
 * Threads are not evaluating first few iterations of their segments
 
+## loopsAfsOlp\_.c
+**loops** **Af**finity **S**cheduling **O**utside **L**oop **P**arallelism **Dash**
+* State: Working
+* Affinity scheduling with thread generation outside loops function
+* An Improvement of loopsAfsOlpN.c :> Runs a check to see if all threads have started executing  loop1.
+* Sets the ground work for elminating that barrier at the end of loops1().
+
 ## loopsTest.c
 * State: Not Working
 > Out of bounds array accesses on certain ocassions
