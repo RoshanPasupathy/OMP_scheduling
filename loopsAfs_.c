@@ -4,23 +4,26 @@
 
 
 #define N 729
-#define reps 1
+#define reps 100
 #include <omp.h>
 
 double a[N][N], b[N][N], c[N];
 int jmax[N];
 int P; //number of threads
-int tf; //transfer factor
 int seg_sz; //iterations allocated to each thread except last
 int* itr_left; //iterations left in each thread
 int* seg_asgn; // seg assigned to each thread
-int* seg_ends; // end of segments
+int* seg_szs;
+
+int ts_rng = 0;
+int r;
+
 //int tot_itr = N; //total iterations left
-//int t_no;
 //int* itr_prf;
 int itr_prf[N] = {0};
 int max_threads;
 omp_lock_t* lock_itr_left;
+omp_lock_t* lock_seg_asgn;
 
 void init1(void);
 void init2(void);
@@ -32,7 +35,10 @@ void debug_race(void);
 
 int main(int argc, char *argv[]) {
   double start1,start2,end1,end2;
-  int r, t, lk;
+  int t, lk;
+
+  //int t_no;
+  //int r;
   #pragma omp parallel default(none) \
   shared(P)
   {
@@ -43,15 +49,14 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  //tf = P/(float) (P - 1);
-  tf = 2;
   printf("number of threads: %d\n", P);
 
   seg_sz = (int) (N/P);
   itr_left = (int *) malloc(sizeof(int) * P);
   seg_asgn = (int *) malloc(sizeof(int) * P);
-  seg_ends = (int *) malloc(sizeof(int) * P);
+  seg_szs = (int *) malloc(sizeof(int) * P);
   lock_itr_left = (omp_lock_t*)malloc(sizeof(omp_lock_t) * P);
+  lock_seg_asgn = (omp_lock_t*)malloc(sizeof(omp_lock_t) * P);
   if ((itr_left == NULL) || (seg_asgn == NULL) || (lock_itr_left == NULL)) {
     printf("FATAL: Malloc failed ... \n");
   }
@@ -61,18 +66,28 @@ int main(int argc, char *argv[]) {
   //Initialise lock
   for (lk = 0; lk < P; lk++){
     omp_init_lock(&(lock_itr_left[lk]));
+    omp_init_lock(&(lock_seg_asgn[lk]));
+    seg_szs[lk] = seg_sz;
     itr_left[lk] = 0;
     seg_asgn[lk] = lk;
   }
+  seg_szs[P-1] += N - (P * seg_sz);
   init1();
   //printf("iterations allocated to each thread: %d\n", seg_sz);
 
   start1 = omp_get_wtime();
-
   #pragma omp parallel default(none) \
-  shared(P, tf, seg_sz,itr_left,seg_asgn, seg_ends) \
+  shared(P, seg_sz,itr_left,seg_asgn, ts_rng, seg_szs) \
   private(r)
   {
+  //t_no = omp_get_thread_num();
+  //first segment assignment done
+  //based on thread number
+  //#pragma atomic write
+  //seg_asgn[t_no] = t_no;
+
+  //#pragma omp critical (printf_lock)
+  //{printf("Seg %d to T%d\n",t_no, t_no);}
   for (r=0; r<reps; r++){
     loop1();
   // }
@@ -98,10 +113,12 @@ int main(int argc, char *argv[]) {
   valid2();
 
   printf("Total time for %d reps of loop 2 = %f\n",reps, (float)(end2-start2));
-  debug_race();
+  //debug_race(); //DEBUG iteration access
   free(seg_asgn);
   free(itr_left);
   free(lock_itr_left);
+  free(lock_seg_asgn);
+  free(seg_szs);
 }
 
 void init1(void){
@@ -140,11 +157,12 @@ void init2(void){
 
 void loop1(void) {
   int i,j,t, lb;
-  int chnk_sz, ub;
+  int rsv, chnk_sz, ub;
   //bool run_flg;
   //maximum load, load, loaded thread
   int max_val, val, ldd_t;
   int seg, itr, t_no;
+  int tsr = 0;
   // for (int lk = 0; lk < P; lk++){
   //   omp_set_lock(&(lock_seg_asgn[lk]));
   // }
@@ -153,36 +171,43 @@ void loop1(void) {
   */
   t_no = omp_get_thread_num();
 
-  seg = t_no;
+  //#pragma omp atomic read
 
-  #pragma atomic write
-  seg_asgn[t_no] = t_no;
-  //#pragma omp critical (lock_printf)
-  //{printf("Seg_asgn for T%d: OKAY\n",t_no);}
+  omp_set_lock(&(lock_seg_asgn[t_no]));
+  seg = seg_asgn[t_no];
+  omp_unset_lock(&(lock_seg_asgn[t_no]));
+
+  //#pragma atomic write
+  //seg_asgn[t_no] = t_no;
+  /*//Uncomment to DEBUG segment assignment
+  #pragma omp critical (printf_lock)
+  {printf("Seg%d to T%d\n",seg, t_no);}
+  */
   //omp_unset_lock(&(lock_seg_asgn[t_no]));
   //set iterations
-  itr = seg_sz;
-  seg_ends[seg] = (seg+1)*seg_sz;
-  if (seg == P - 1){
-    itr += N - (seg_sz * P);
-    seg_ends[seg] = N;
-  }
+  itr = seg_szs[seg];
+  // if (seg == P - 1){
+  //   itr += N - (seg_sz * P);
+  // }
 
   max_val = itr;
 
   lb = seg * seg_sz;
-  //seg_ends[t_no] = lb + itr;
-  chnk_sz = (int) (itr/P);
+  rsv = chnk_sz = (int) (itr/P);
 
   omp_set_lock(&(lock_itr_left[t_no]));
-  itr_left[t_no] = itr;
+  itr_left[t_no] = itr - rsv;
+  #pragma omp atomic
+  ts_rng++;
   omp_unset_lock(&(lock_itr_left[t_no]));
   //#pragma omp barrier
-  #pragma omp critical (printf_lock)
-  {
-    printf("Thread %d start iterating from %d\n",t_no, lb);
-  }
-  while (max_val > tf){
+  // #pragma omp critical
+  // {
+  //   printf("itr from thread %d: %d\n",t_no, itr);
+  // }
+
+  //while there are iterations or all threads havent started yet keep going
+  while ((max_val > 0) || (tsr < (r + 1) * P)){
     while (itr > 0){
       ub = lb + chnk_sz;
       /*//Uncomment for DEBUG segmentation fault
@@ -209,23 +234,27 @@ void loop1(void) {
       omp_unset_lock(&(lock_itr_left[t_no]));
 
       for (i = lb ;i < ub; i++){
-        #pragma omp atomic update //DEBUG
-        itr_prf[i]++;             //DEBUG
+        //#pragma omp atomic update //DEBUG
+        //itr_prf[i]++;             //DEBUG
         for (j=N-1; j>i; j--){
           a[i][j] += cos(b[i][j]);
         }
       }
       lb = i;
+
+      itr += rsv;
       // New chunk size
       chnk_sz = (int) (itr/P);
       if (chnk_sz < 1){
         chnk_sz = 1;
       }
     } // Ran out of iterations in assigned segment
-
-   // Load transfer block //
-    max_val = tf;
+    //still threads to evaluate
+    // Load transfer block //
+    max_val = 0;
     ldd_t = t_no;
+
+    //if (tsr <= (r + 1)*P){
     #pragma omp critical (load_transfer)
     {
     //iterate to get loaded thread
@@ -239,37 +268,57 @@ void loop1(void) {
         ldd_t = t;
       }
     }
-    //transfer laod if new thread found else do nothing
-    //if (ldd_t != t_no){
-    omp_set_lock(&(lock_itr_left[ldd_t]));
-    itr = (int) (itr_left[ldd_t]/tf);
-    itr_left[ldd_t] -= itr;
-    omp_unset_lock(&(lock_itr_left[ldd_t]));
-    // uncomment for DEBUG
-    #pragma omp critical (printf_lock)
-    {printf("Reassign %d itrs from T%d to T%d ....",itr, ldd_t, t_no);}
-    //get segment
 
-    //omp_set_lock(&(lock_seg_asgn[ldd_t]));
-    seg = seg_asgn[t_no] = seg_asgn[ldd_t];
-    //omp_unset_lock(&(lock_seg_asgn[ldd_t]));
+    #pragma omp atomic read
+    tsr = ts_rng;
+    //transfer laod if its the same rep
+    if (tsr <= (r + 1)*P){
+    omp_set_lock(&(lock_itr_left[ldd_t]));
+    itr = itr_left[ldd_t];
+    itr_left[ldd_t] = 0;
+    omp_unset_lock(&(lock_itr_left[ldd_t]));
+    /*// uncomment for DEBUG
+    #pragma omp critical (printf_lock)
+    {printf("T%d:%d itrs(org %d)-->T%d ....",ldd_t, itr, max_val, t_no);}
+    */
+    //get segment
+    seg = seg_asgn[t_no];
+    //omp_set_lock(&(lock_seg_asgn[t_no]));
+    seg_asgn[t_no] = seg_asgn[ldd_t];
+    //omp_unset_lock(&(lock_seg_asgn[t_no]));
+    //reassign loaded thread to my segment
+    omp_set_lock(&(lock_seg_asgn[ldd_t]));
+    seg_asgn[ldd_t] = seg;
+    omp_unset_lock(&(lock_seg_asgn[ldd_t]));
+    seg = seg_asgn[t_no];
+
+    /*//Uncomment for DEBUG transfers and segment tracking
+    #pragma omp critical (printf_lock)
+    {printf("TRANSFER: S%d-->T%d\nTRANSFER: S%d-->T%d\n",seg_asgn[t_no], t_no, seg, ldd_t);}
+    */
+
+    rsv =  chnk_sz = (itr < P)? 1: (int) (itr/P);
     //Thread says it has completed 'rsv' but hasnt actually
     //omp_set_lock(&(lock_itr_left[t_no]));
-    itr_left[t_no] += itr; //not good
+    itr_left[t_no] = itr - rsv;
     //omp_unset_lock(&(lock_itr_left[t_no]));
-    lb = seg_ends[seg] - itr;
-    seg_ends[seg] = lb;
+    }
     } //END LOAD TRANSFER
 
-    chnk_sz = (itr < P)? 1: (int) (itr/P);
     //if Last thread, segment end = N
-    //seg = seg_asgn[t_no];
-    //lb = (seg == P - 1)? N - itr: ((seg + 1)*seg_sz) - itr;
-    // Uncomment for DEBUG
+    lb = (seg == P - 1)? N - itr: ((seg + 1)*seg_sz) - itr;
+
+    //#pragma omp atomic read
+    //tsr = ts_rng;
+
+    /*// Uncomment for DEBUG
     #pragma omp critical (printf_lock)
-    {printf(" eval segment %d. bounds %d - %d\n", seg, lb, lb + itr);}
+    {printf("seg%d:bounds %d - %d\n", seg, lb, (seg==P-1)?N:(seg+1) * seg_sz);}
+    */
+    //#pragma omp critical (printf_lock)
+    //{printf("Thread %d has detected %d threads running in rep %d: max_val = %d\n", t_no, tsr, r, max_val);}
   }
-  #pragma omp barrier
+  //#pragma omp barrier
 }
 
 
@@ -316,6 +365,12 @@ void valid2(void) {
   printf("Loop 2 check: Sum of c is %f\n", sumc);
 }
 
+  /*
+    * This is a function for debugging
+    * Segment wise thread access is evaluated
+    * Uncomment itr_prf[] lines in loop1 and function
+      call line in main
+  */
 void debug_race(void){
   int i,seg, ub;
   printf("running debug... \n");

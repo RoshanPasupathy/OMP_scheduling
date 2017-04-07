@@ -36,7 +36,16 @@
 * State: Working
 * Affinity scheduling with thread generation outside loops function
 * An Improvement of loopsAfsOlpN.c :> Runs a check to see if all threads have started executing  loop1.
-* Sets the ground work for elminating that barrier at the end of loops1().
+* Sets the ground work for elminating that barrier at the end of loop1.
+
+## loopsAfs\_.c
+**loops** **Af**finity **S**cheduling **Dash**
+* State: Working But horribly slow with an increase in threads
+* Affinity scheduling with thread generation outside loops function
+* An Improvement of loopsAfsOlpN.c :> Runs a check to see if all threads have started executing  loop1.
+* **No Barrier at the end of loop1**
+* Although it's slow, it sets the foundation for further work:
+> Try getting fast threads to assign themselves unassigned segments
 
 ## loopsTest.c
 * State: Not Working
