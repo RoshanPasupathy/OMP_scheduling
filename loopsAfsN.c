@@ -15,6 +15,12 @@ int seg_sz; //iterations allocated to each thread except last
 int* itr_left; //iterations left in each thread
 int* d_seg_sz; // seg assigned to each thread
 int* t_itr_end; // end of segments
+int* ldd_tarr; //array of loaded threads
+int* thread_rng; //indicate thread is running
+int cnt_ldd_ts; //number of loaded threads
+int ut;
+omp_lock_t lock_ut;
+int r; //reps iterator
 //int tot_itr = N; //total iterations left
 //int t_no;
 //int* itr_prf;
@@ -32,7 +38,7 @@ void debug_race(void);
 
 int main(int argc, char *argv[]) {
   double start1,start2,end1,end2;
-  int r, t, lk;
+  int t, lk;
   #pragma omp parallel default(none) \
   shared(P)
   {
@@ -44,15 +50,21 @@ int main(int argc, char *argv[]) {
   }
 
   //tf = P/(float) (P - 1);
+
+  //Constant values
   tf = P;
   printf("number of threads: %d\n", P);
-
+  cnt_ldd_ts = P;
+  ut = P;
   seg_sz = (int) (N/P);
-
-  itr_left = (int *) malloc(sizeof(int) * P);
   d_seg_sz = (int *) malloc(sizeof(int) * P);
-  t_itr_end = (int *) malloc(sizeof(int) * P);
   lock_itr_left = (omp_lock_t*)malloc(sizeof(omp_lock_t) * P);
+
+  //Variable values
+  itr_left = (int *) malloc(sizeof(int) * P);
+  t_itr_end = (int *) malloc(sizeof(int) * P);
+  ldd_tarr = (int *) malloc(sizeof(int) * P);
+  thread_rng = (int *) malloc(sizeof(int) * P);
 
   if ((itr_left == NULL) || (d_seg_sz == NULL) || (lock_itr_left == NULL) || (t_itr_end == NULL) ) {
     printf("FATAL: Malloc failed ... \n");
@@ -61,10 +73,13 @@ int main(int argc, char *argv[]) {
     printf("Allocation: OKAY\n");
   }
   //Initialise lock
+  omp_init_lock(&lock_ut);
   for (lk = 0; lk < P; lk++){
     omp_init_lock(&(lock_itr_left[lk]));
     itr_left[lk] = 0;
     d_seg_sz[lk] = seg_sz;
+    ldd_tarr[lk] = lk; //at the start all threads are loaded
+    thread_rng[lk] = 0;
   }
   d_seg_sz[P-1]+= N - (seg_sz*P);
 
@@ -75,7 +90,7 @@ int main(int argc, char *argv[]) {
 
   #pragma omp parallel default(none) \
   shared(P, tf, seg_sz,itr_left,d_seg_sz, t_itr_end) \
-  private(r)
+  shared(ldd_tarr, cnt_ldd_ts, ut, lock_ut, thread_rng) private(r)
   {
   for (r=0; r<reps; r++){
     loop1();
@@ -107,7 +122,8 @@ int main(int argc, char *argv[]) {
   free(itr_left);
   free(lock_itr_left);
   free(t_itr_end);
-  //free(d_seg_sz);
+  free(ldd_tarr);
+  free(thread_rng);
 }
 
 void init1(void){
@@ -147,7 +163,8 @@ void init2(void){
 void loop1(void) {
   int i,j,t, lb;
   int chnk_sz, ub;
-
+  int threadt, lt;
+  int checkThreadRng;
   //maximum load, load, loaded thread
   int max_val, val, ldd_t;
   int itr, t_no;
@@ -181,6 +198,8 @@ void loop1(void) {
   itr_left[t_no] = itr;
   omp_unset_lock(&(lock_itr_left[t_no]));
 
+  #pragma omp atomic update
+  thread_rng[t_no]++;
   // DEBUG
   //#pragma omp critical (printf_lock)
   //{printf("Thread %d start iterating from %d\n",t_no, lb);}
@@ -210,7 +229,6 @@ void loop1(void) {
       itr = itr_left[t_no];
       omp_unset_lock(&(lock_itr_left[t_no]));
 
-      //for (i = lb ;i < ub; i++){
       for (;lb < ub; lb++){
         //#pragma omp atomic update //DEBUG
         //itr_prf[i]++;             //DEBUG
@@ -218,7 +236,6 @@ void loop1(void) {
           a[lb][j] += cos(b[lb][j]);
         }
       }
-      //lb = i;
       // New chunk size
       chnk_sz = (itr < P)? 1: (int) (itr/P);
     } // Ran out of iterations in assigned segment
@@ -226,20 +243,33 @@ void loop1(void) {
    // Load transfer block //
     max_val = tf;
     ldd_t = t_no;
+    lt = 0;
     #pragma omp critical (load_transfer)
     {
+    // Total number of threads - loaded threads
     //iterate to get loaded thread
-    for (t = 0; t < P; t++){
+    for (t = 0; t < cnt_ldd_ts; t++){
+      threadt = ldd_tarr[t];
+      #pragma omp atomic read
+      checkThreadRng = thread_rng[threadt];
       //omp_set_lock(&(lock_itr_left[t]));
       #pragma omp atomic read
-      val = itr_left[t];
+      val = itr_left[threadt];
       //omp_unset_lock(&(lock_itr_left[t]));
 
       if (val > max_val){
         max_val = val;
-        ldd_t = t;
+        ldd_t = threadt;
+        ldd_tarr[lt] = threadt;
+        lt++;
+      }
+      //val greater than or equal to P or thread hasnt started yet
+      else if ((val > P - 1) || (checkThreadRng < (r + 1))){
+        ldd_tarr[lt] = threadt;
+        lt++;
       }
     }
+    cnt_ldd_ts = lt; //reset number of loaded threads
     //transfer load if new thread found else do nothing ?
     if (ldd_t != t_no){
       omp_set_lock(&(lock_itr_left[ldd_t]));
@@ -263,7 +293,17 @@ void loop1(void) {
     //#pragma omp critical (printf_lock)
     //{printf(" eval segment %d. bounds %d - %d\n", seg, lb, lb + itr);}
   }
-  #pragma omp barrier
+  omp_set_lock(&lock_ut);
+  ut--;
+  omp_unset_lock(&lock_ut);
+  //reset ldd_tarr
+  ldd_tarr[ut] = t_no;
+  if (ut == 0){
+    //reset ut
+    ut = P;
+    cnt_ldd_ts = P;
+  }
+  //#pragma omp barrier
 }
 
 
