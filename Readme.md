@@ -5,6 +5,24 @@
 * Use make as indicated to build files
 * To initialise threads use `export OMP_NUM_THREADS=n`
 
+## loopsAfsOlpN.c
+**loops** **Af**finity **S**cheduling **O**utside **L**oop **P**arallelism **N**ew
+* State: Working
+* Affinity scheduling with thread generation outside loops function
+* Minimal locks. Main overhead in load transfer
+
+## loopsAfsN.c
+**loops** **Af**finity **S**cheduling **N**ew
+* State: Working. Fastest right now but only slightly faster than `loopsAfsOlpN.c`
+* Tried reducing the overhead in `loopsAfsOlpN.c`by removing unloaded threads from the search list 
+* While this reduces the overhead of searching through all threads, the extra statements do add an equal overhead 
+
+## loopsAfsN\_.c
+**loops** **Af**finity **S**cheduling **N**ew **Dash**
+* State: Working. As fast as `loopsAfsN.c`.*Extra effort may not be worth it.*  
+* Tried reducing the overhead in `loopsAfsN.c` by offloading work from threads whihc havent started to threads which are done with their local set. 
+* This is advantageous in systems in which thread performance greatly differs. Otherwise it induces an extra overhead in large locked reagions.
+
 ## loopsRef.c
 **loops** **Ref**erence
 * State: Working
@@ -15,6 +33,9 @@
 * State: Working
 * Explicit scheduling for loop 1
 
+Old Scripts
+-----------
+
 ## loopsAfsIlp.c
 **loops** **Af**finity **S**cheduling **I**nside **L**oop **P**arallelism
 * State: Working
@@ -24,18 +45,6 @@
 **loops** **Af**finity **S**cheduling **O**utside **L**oop **P**arallelism
 * State: Working
 * Affinity scheduling with thread generation outside loops function
-
-## loopsAfsOlpN.c
-**loops** **Af**finity **S**cheduling **O**utside **L**oop **P**arallelism **N**ew
-* State: Works great
-* Affinity scheduling with thread generation outside loops function
-* Minimal locks. Main overhead in load transfer
-
-## loopsAfsN.c
-**loops** **Af**finity **S**cheduling **N**ew
-* State: Works. Fastest right now but only slightly faster than `loopsAfsOlpN.c`
-* Tried reducing the overhead in `loopsAfsOlpN.c`by removing unloaded threads from the search list 
-* While this reduces the overhead of searching through all threads, the extra statements do add an equal overhead 
 
 ## loopsAfsOlp\_.c
 **loops** **Af**finity **S**cheduling **O**utside **L**oop **P**arallelism **Dash**

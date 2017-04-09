@@ -196,7 +196,6 @@ void loop1(void) {
 
   omp_set_lock(&(lock_itr_left[t_no]));
   itr_left[t_no] = itr;
-  omp_unset_lock(&(lock_itr_left[t_no]));
 
   #pragma omp atomic update
   thread_rng[t_no]++;
@@ -205,6 +204,8 @@ void loop1(void) {
   //{printf("Thread %d start iterating from %d\n",t_no, lb);}
   while (max_val > tf){
     while (itr > 0){
+      itr_left[t_no] -= chnk_sz;
+      omp_unset_lock(&(lock_itr_left[t_no]));
       ub = lb + chnk_sz;
       /*//Uncomment for DEBUG segmentation fault
       if (((seg*seg_sz > lb || lb > (seg+1)*seg_sz) && (seg != P - 1)) ||
@@ -224,10 +225,6 @@ void loop1(void) {
       //   {printf("Bounds okay\n");}
       // }
       */
-      omp_set_lock(&(lock_itr_left[t_no]));
-      itr_left[t_no] -= chnk_sz;
-      itr = itr_left[t_no];
-      omp_unset_lock(&(lock_itr_left[t_no]));
 
       for (;lb < ub; lb++){
         //#pragma omp atomic update //DEBUG
@@ -236,10 +233,14 @@ void loop1(void) {
           a[lb][j] += cos(b[lb][j]);
         }
       }
+
+      omp_set_lock(&(lock_itr_left[t_no]));
+      itr = itr_left[t_no];
       // New chunk size
       chnk_sz = (itr < P)? 1: (int) (itr/P);
     } // Ran out of iterations in assigned segment
 
+    omp_unset_lock(&(lock_itr_left[t_no]));
    // Load transfer block //
     max_val = tf;
     ldd_t = t_no;
@@ -285,6 +286,7 @@ void loop1(void) {
 
       itr_left[t_no] = itr;
       lb = t_itr_end[t_no] - itr;
+      omp_set_lock(&(lock_itr_left[t_no]));
     }
     } //END LOAD TRANSFER
 
@@ -302,6 +304,12 @@ void loop1(void) {
     //reset ut
     ut = P;
     cnt_ldd_ts = P;
+  }
+  if (omp_test_lock(&(lock_itr_left[t_no]))){
+    omp_unset_lock(&(lock_itr_left[t_no]));
+  }
+  else{
+    omp_unset_lock(&(lock_itr_left[t_no]));
   }
   //#pragma omp barrier
 }
