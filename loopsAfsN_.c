@@ -9,6 +9,8 @@
 
 double a[N][N], b[N][N], c[N];
 int jmax[N];
+
+int cnt_ldd_ts[reps]; //number of loaded threads per rep
 int P; //number of threads
 int tf; //transfer factor
 int seg_sz; //iterations allocated to each thread except last
@@ -17,7 +19,6 @@ int* d_seg_sz; // seg assigned to each thread
 int* t_itr_end; // end of segments
 int* ldd_tarr; //array of loaded threads
 int* thread_rng; //indicate thread is running
-int cnt_ldd_ts; //number of loaded threads
 int ut;
 omp_lock_t lock_ut;
 int r; //reps iterator
@@ -54,7 +55,9 @@ int main(int argc, char *argv[]) {
   //Constant values
   tf = P;
   printf("number of threads: %d\n", P);
-  cnt_ldd_ts = P;
+  for (int i =0; i < reps; i++){
+    cnt_ldd_ts[i] = P;
+  }
   ut = P;
   seg_sz = (int) (N/P);
   lock_itr_left = (omp_lock_t*)malloc(sizeof(omp_lock_t) * P);
@@ -90,7 +93,7 @@ int main(int argc, char *argv[]) {
 
   #pragma omp parallel default(none) \
   shared(P, tf, seg_sz,itr_left,d_seg_sz, t_itr_end) \
-  shared(ldd_tarr, cnt_ldd_ts, ut, lock_ut, thread_rng) private(r)
+  shared(ldd_tarr, ut, lock_ut, thread_rng) private(r)
   {
   for (r=0; r<reps; r++){
     loop1();
@@ -243,7 +246,7 @@ void loop1(void) {
     #pragma omp critical (load_transfer)
     {
     //iterate to get loaded thread
-    for (t = 0; t < cnt_ldd_ts; t++){
+    for (t = 0; t < cnt_ldd_ts[r]; t++){
       threadt = ldd_tarr[t];
       #pragma omp atomic read
       checkThreadRng = thread_rng[threadt];
@@ -277,7 +280,7 @@ void loop1(void) {
             itr_left[t_no] = itr;
             lb = t_itr_end[t_no] - itr;
             //break out of loop
-            lt += cnt_ldd_ts - t;
+            lt += cnt_ldd_ts[r] - t;
             ldd_t = t_no;
             //#pragma omp critical (printf_lock)
             //{printf("R%d: T%d acquired %d iterations from T%d - %d - %d\n", r, t_no, itr, threadt,  lb, t_itr_end[t_no]);}
@@ -300,7 +303,7 @@ void loop1(void) {
         }
       } // END UNLOADING threadts segment
     }
-    cnt_ldd_ts = lt; //reset number of loaded threads
+    cnt_ldd_ts[r] = lt; //reset number of loaded threads
     //transfer load if new thread found else do nothing ?
     if (ldd_t != t_no){
       omp_set_lock(&(lock_itr_left[ldd_t]));
@@ -337,7 +340,6 @@ void loop1(void) {
   if (ut == 0){
     //reset ut
     ut = P;
-    cnt_ldd_ts = P;
   }
   if (omp_test_lock(&(lock_itr_left[t_no]))){
     omp_unset_lock(&(lock_itr_left[t_no]));
