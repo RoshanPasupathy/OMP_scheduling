@@ -7,9 +7,9 @@ Various schedulers to maximise threaded performance while executing loops. The N
 * To initialise threads use `export OMP_NUM_THREADS=n`
 
 ## Makefile
-* Run make to compile all c scripts with name `loop\*.c`
+* Run make to compile all c scripts with name `loop*.c`
 * Use `make` as indicated to build files
-* Use `make clean` to clear all executables of scripts `loop\*.c`
+* Use `make clean` to clear all executables of scripts `loop*.c`
 * Use `make rclean` for redundant executables. 
 
 ***
@@ -31,8 +31,9 @@ Various schedulers to maximise threaded performance while executing loops. The N
 ## 3. loopsAfsN\_.c
 **loops** **Af**finity **S**cheduling **N**ew **Dash**
 * State: Working. As fast as `loopsAfsN.c`.*Extra effort may not be worth it.*  
-* Tried reducing the overhead in `loopsAfsN.c` by offloading work from threads whihc havent started to threads which are done with their local set. 
+* Tried reducing the overhead in `loopsAfsN.c` by offloading work from threads which havent started to threads which are done with their local set. 
 * This is advantageous in systems in which thread performance greatly differs. Otherwise it induces an extra overhead in large locked reagions.
+* **Faster than guided scheduling**
 
 ## 4. loopsRef.c
 **loops** **Ref**erence
@@ -68,14 +69,14 @@ Various schedulers to maximise threaded performance while executing loops. The N
 **loops** **Af**finity **S**cheduling **O**utside **L**oop **P**arallelism **Dash**
 * State: Working
 * Affinity scheduling with thread generation outside loops function
-* An Improvement of loopsAfsOlpN.c :> Runs a check to see if all threads have started executing  loop1.
+* An Improvement of `loopsAfsOlpN.c` :> Runs a check to see if all threads have started executing  loop1.
 * Sets the ground work for elminating that barrier at the end of loop1.
 
 ## 4. loopsAfs\_.c
 **loops** **Af**finity **S**cheduling **Dash**
 * State: Working But horribly slow with an increase in threads
 * Affinity scheduling with thread generation outside loops function
-* An Improvement of loopsAfsOlpN.c :> Runs a check to see if all threads have started executing  loop1.
+* An Improvement of `loopsAfsOlpN.c` :> Runs a check to see if all threads have started executing  loop1.
 * **No Barrier at the end of loop1**
 * Although it's slow, it sets the foundation for further work:
 > Try getting fast threads to assign themselves unassigned segments
