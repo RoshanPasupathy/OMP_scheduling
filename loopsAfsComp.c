@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
   valid2();
 
   printf("Total time for %d reps of loop 2 = %f\n",reps, (float)(end2-start2));
-  //debug_race();
+  debug_race();
   free(d_seg_sz);
   free(itr_left);
   free(lock_itr_left);
@@ -194,28 +194,29 @@ void loop1(void) {
   t_no = omp_get_thread_num();
   seg = t_no;
   //set iterations
-  omp_set_lock(&(lock_itr_left[t_no]));
+
   //#pragma omp critical (printf_lock)
-  //{printf(" Attempting to read seg size T%d for r: %d\n",t_no, r);}
-  //#pragma omp atomic read
-  //#pragma omp critical (Set_Seg_Sz)
+  //{printf("T%d Aquiring lock to initialise segment\n",t_no);}
+  omp_set_lock(&(lock_itr_left[t_no]));
 
   //#pragma omp critical (printf_lock)
   //{printf("T: %d, Rep %d\n", t_no, thread_rng[t_no]);}
   curr_rep = thread_rng[t_no];
   #pragma omp atomic read
-  itr = t_itr_end[seg];//d_seg_sz[t_no];
+  itr = t_itr_end[seg];
+
+  //#pragma omp critical (printf_lock)
+  //{printf("Thread %d has %d iterations left\n",t_no, itr);}
   itr -= seg * seg_sz;
   //t_itr_end[t_no] = (t_no*seg_sz) + itr;
+
   itr_left[t_no] = itr;
   #pragma omp atomic update
   is_assigned[seg]++; //update info that something is running in this seg
-  //#pragma omp critical (printf_lock)
-  //{printf("Thread %d attempting to update thread running\n",t_no);
   #pragma omp atomic update
-  thread_rng[t_no]++;
+  thread_rng[t_no]++; //indicate that thread has started new loop1
   //printf("Thread %d, update thread running\n", t_no);}
-
+  //t_itr_end[t_no] = (t_no == P - 1)? N: (t_no + 1) * seg_sz;
   //reset d_seg_sz
   // at this point the thread is initialised so
   // no more attempts to write to or read from it
@@ -256,8 +257,8 @@ void loop1(void) {
       */
 
       for (;lb < ub; lb++){
-        //#pragma omp atomic update //DEBUG
-        //itr_prf[lb]++;             //DEBUG
+        #pragma omp atomic update //DEBUG
+        itr_prf[lb]++;             //DEBUG
         for (j=N-1; j>lb; j--){
           a[lb][j] += cos(b[lb][j]);
         }
@@ -296,18 +297,29 @@ void loop1(void) {
         ldd_tarr[lt] = threadt;
         lt++;
       }
-      else if (val > P - 1) /*|| (checkThreadRng < curr_rep + 1))*/{
+      else if (val > P - 1){
         ldd_tarr[lt] = threadt;
         lt++;
       }
-      /*else if (checkThreadRng < curr_rep + 1){
+      else if (checkThreadRng < curr_rep + 1){
         //#pragma omp critical
         //{printf("R%d: T%d still on  R%d\n",curr_rep, threadt, checkThreadRng - 1 );}
         ldd_tarr[lt] = threadt;
         lt++;
         cnt_nt_strt++;
-      }*/
-      else if (checkThreadRng < curr_rep + 1){ //Unloading non assigned segment
+      }
+      else if (checkThreadRng == curr_rep + 1){ //Threadt has stopped running in the current rep
+        //reset its iter end
+        //omp_set_lock(&(lock_itr_left[threadt]));
+        //#pragma omp critical (printf_lock)
+        //{printf("R%d: T%d has %d iterations left. reassigning itr_End to default %d\n", curr_rep, threadt, val, );}
+        #pragma omp atomic write
+        t_itr_end[threadt] = (threadt == P - 1)? N: (threadt + 1) * seg_sz;
+        //#pragma omp critical (printf_lock)
+        //{printf("R%d: T%d has %d iterations left. reassigning itr_End to default %d\n", curr_rep, threadt, val, t_itr_end[threadt]);}
+        //omp_unset_lock(&(lock_itr_left[threadt]));
+      }
+      /*else if (checkThreadRng < curr_rep + 1){ //Unloading non assigned segment
         //printf("T%d acquiring lock for T%d\n",t_no, threadt);
         omp_set_lock(&(lock_itr_left[threadt]));
         //check if any change to value of checkThreadRng and if segment is being worked on
@@ -321,11 +333,11 @@ void loop1(void) {
           if (itr > 0){
             // perform load transfer internally
             seg = P;
-            t_itr_end[t_no] = t_itr_end[threadt];
+            //t_itr_end[t_no] = t_itr_end[threadt];
             t_itr_end[threadt] -= itr;
+            lb = t_itr_end[threadt];
             omp_unset_lock(&(lock_itr_left[threadt]));
             itr_left[t_no] = itr;
-            lb = t_itr_end[t_no] - itr;
             //break out of loop
             lt += cnt_ldd_ts[curr_rep] - t;
             ldd_t = t_no;
@@ -349,14 +361,7 @@ void loop1(void) {
           ldd_tarr[lt] = threadt;
           lt++;
         }
-      } // END UNLOADING threads segment
-      else{ //This thread has just stopped running
-        //reset its iter end
-        //omp_set_lock(&(lock_itr_left[threadt]));
-        #pragma omp atomic write
-        t_itr_end[threadt] = (threadt == P - 1)? N: (threadt + 1)*seg_sz;
-        //omp_unset_lock(&(lock_itr_left[threadt]));
-      }
+      } // END UNLOADING threads segment*/
     }
     cnt_ldd_ts[curr_rep] = lt; //reset number of loaded threads
     //transfer load if new thread found else do nothing ?
@@ -364,6 +369,7 @@ void loop1(void) {
       omp_set_lock(&(lock_itr_left[ldd_t]));
       itr = (int) (itr_left[ldd_t]/tf);
       itr_left[ldd_t] -= itr;
+      t_itr_end[ldd_t] -= itr;
       omp_unset_lock(&(lock_itr_left[ldd_t]));
       //load is transfered only from threads in their original segment
       seg = ldd_t;
@@ -373,10 +379,10 @@ void loop1(void) {
       //#pragma omp critical (printf_lock)
       //{printf("Reassign %d itrs from T%d to T%d ....\n",itr, ldd_t, t_no);}
 
-      t_itr_end[t_no] = t_itr_end[ldd_t];
-      t_itr_end[ldd_t] -= itr;
+      //t_itr_end[t_no] = t_itr_end[ldd_t];
       itr_left[t_no] = itr;
-      lb = t_itr_end[t_no] - itr;
+      #pragma omp atomic read
+      lb = t_itr_end[ldd_t];
       //omp_set_lock(&(lock_itr_left[t_no]));
     }
     // same thread :> no itr but wait
