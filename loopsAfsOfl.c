@@ -327,8 +327,8 @@ void loop1(void) {
             //break out of loop
             lt += cnt_ldd_ts[curr_rep] - t;
             ldd_t = t_no;
-            #pragma omp critical (printf_lock)
-            {printf("R%d: T%d acquired %d iterations from T%d - %d - %d\n", curr_rep, t_no, itr, threadt,  lb, t_itr_end[t_no]);}
+            //#pragma omp critical (printf_lock)
+            //{printf("R%d: T%d acquired %d iterations from T%d - %d - %d\n", curr_rep, t_no, itr, threadt,  lb, t_itr_end[t_no]);}
             //omp_set_lock(&(lock_itr_left[t_no]));
             break;
           }
