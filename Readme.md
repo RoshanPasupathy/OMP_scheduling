@@ -51,6 +51,13 @@ Various schedulers to maximise threaded performance while executing loops. The N
 * Guided scheduling 
 * Minimal wiritng time (5 minutes as opposed to a week writing `loopsAfsN_.c`)
 
+## 7. loopsAfsComp2.c
+**loops** **Af**finity **S**cheduling **Comp**ressed **2**
+* State: Working loop1 and loop2 parallelism
+* **Current Best version: Reasonabl fast and robust**
+* No barrier needed at the end of each rep
+* Needs some cleanup
+
 ***
 
 ## Old Scripts
