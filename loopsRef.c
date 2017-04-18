@@ -3,7 +3,7 @@
 
 
 #define N 729
-#define reps 5
+#define reps 100
 #include <omp.h>
 
 double a[N][N], b[N][N], c[N];
